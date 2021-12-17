@@ -164,7 +164,7 @@ public:
     }
 
     explicit PerftTT_8() : limitHitsPerDepth(10),
-            size((SIZE_IN_MB / 8) * 1048576),
+            size(SIZE_IN_MB * 131072),
             mask(size / 8 - 1), // eight entries per bucket
             entries(size) {
     }

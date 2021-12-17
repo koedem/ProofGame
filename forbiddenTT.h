@@ -19,7 +19,7 @@ class ForbiddenTT {
     }
 
 public:
-    explicit ForbiddenTT(uint64_t sizeInMB) : size((sizeInMB/ 8) * 1048576),
+    explicit ForbiddenTT(uint64_t sizeInMB) : size(sizeInMB * 131072),
         mask(size / 8 - 1), // eight entries per bucket
         entries(size) {
     }
