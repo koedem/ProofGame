@@ -4,6 +4,7 @@
 #include<vector>
 #include<list>
 #include<chrono>
+#include<stack>
 
 #include "position.h"
 #include "perftTT8.h"
@@ -11,9 +12,9 @@
 
 using namespace std::chrono;
 
-const uint64_t counterSizeMB = 64;
+const uint64_t counterSizeMB = 8192;
 const uint64_t positionsMB = 16;
-const uint64_t oldUniqueMB = 16;
+const uint64_t oldUniqueMB = 1;
 
 class Perft {
 
@@ -98,7 +99,7 @@ class Perft {
     template<Color to_move>
     uint64_t incrementFinalDepth(bool ruined) {
         MoveList<to_move> moves(board);
-        static uint64_t hash = 0;
+        static uint64_t hash = 0; // TODO prefetch, buffer access etc.
 
         for (const Move& move : moves) {
             perftTT.incrementPosition(board.get_hash() ^ board.template zobrist_change_move<to_move>(move), ruined);
@@ -152,7 +153,7 @@ public:
         perftTT.printCounts();
 
         t1 = high_resolution_clock::now();
-        result = countDeepPositions<to_move>(depth + 3, 0, false); // TODO if changed, change the inCheck check
+        result = countDeepPositions<to_move>(depth + 5, 0, false);
         t2 = high_resolution_clock::now();
         time_span = t2 - t1;
 
@@ -164,5 +165,90 @@ public:
 
         collectUniquePositions<to_move>(depth, 0);
         oldUnique.printCounts();
+    }
+
+    template<Color to_move>
+    void solveSpecific() {
+        MoveList<to_move> moves(board);
+
+        for (const Move& move : moves) {
+            board.play<to_move>(move);
+            move_stack.push(move);
+
+            if (!permanentCondition()) {
+                board.undo<to_move>(move);
+                move_stack.pop();
+                continue;
+            }
+            MoveList<~to_move> moves_2(board);
+
+            for (const Move& move_2 : moves_2) {
+                board.play<~to_move>(move_2);
+                move_stack.push(move_2);
+                if (finalCondition()) {
+                    while (!move_stack.empty()) {
+                        std::cout << move_stack.top() << std::endl;
+                        move_stack.pop();
+                    }
+                    return;
+                }
+                board.undo<~to_move>(move_2);
+                move_stack.pop();
+            }
+            board.undo<to_move>(move);
+            move_stack.pop();
+        }
+    }
+
+    time_t start, end;
+
+    bool finalCondition() {
+        return board.bitboard_of(WHITE_KNIGHT) == (1ull << c4) && pop_count(board.bitboard_of(BLACK_PAWN)) == 7 && board.at(a3) == BLACK_BISHOP
+            && board.at(a1) == WHITE_ROOK && board.at(h1) == WHITE_ROOK && board.at(e8) == BLACK_KING && board.at(d8) == BLACK_QUEEN
+            && board.at(b8) == BLACK_KNIGHT && board.at(g8) == BLACK_KNIGHT && board.at(a8) == BLACK_ROOK && permanentCondition() && board.at(a6) == BLACK_PAWN;
+    }
+
+    bool permanentCondition() {
+        return board.at(a2) == WHITE_PAWN && board.at(b2) == WHITE_PAWN && board.at(c2) == WHITE_PAWN
+        && board.at(d2) == WHITE_PAWN && board.at(e2) == WHITE_PAWN && board.at(f2) == WHITE_PAWN && board.at(g2) == WHITE_PAWN
+        && board.at(h2) == WHITE_PAWN && board.at(b7) == BLACK_PAWN && board.at(c7) == BLACK_PAWN
+        && board.at(d7) == BLACK_PAWN && board.at(f7) == BLACK_PAWN && board.at(g7) == BLACK_PAWN
+        && board.at(h7) == BLACK_PAWN && (board.at(a7) == BLACK_PAWN || board.at(a6) == BLACK_PAWN);
+    }
+
+    std::stack<Move> move_stack;
+
+    template<Color to_move, int32_t depth, bool top_level>
+    void findSpecific() {
+        uint64_t hash = board.get_hash() + depth;
+        if (counterHelp[hash % 3].incrementToLimit(hash, 2, depth) >= 1) {
+            return;
+        }
+        MoveList<to_move> moves(board);
+
+        for (const Move& move : moves) {
+            if (top_level) {
+                time(&start);
+            }
+            board.play<to_move>(move);
+            move_stack.push(move);
+
+            if (!permanentCondition()) {
+                board.undo<to_move>(move);
+                move_stack.pop();
+                continue;
+            }
+            if constexpr (depth > 1) {
+                findSpecific<~to_move, depth - 1, false>();
+            } else {
+                solveSpecific<~to_move>();
+            }
+            board.undo<to_move>(move);
+            move_stack.pop();
+            if (top_level) {
+                time(&end);
+                std::cout << "Move " << move << " took " << (end - start) << " seconds." << std::endl;
+            }
+        }
     }
 };
