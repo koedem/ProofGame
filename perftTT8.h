@@ -165,8 +165,8 @@ public:
     void reset() {
         std::fill(entries.begin(), entries.end(), Bucket());
         for (Bucket& bucket : entries) {
-            for (uint64_t & slot : bucket.slots) {
-                slot = 0;
+            for (int i = 0; i  < 8; i++) {
+                bucket.slots[i] = 0;
             }
         }
         std::fill(limitHitsPerDepth.begin(), limitHitsPerDepth.end(), 0);

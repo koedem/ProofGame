@@ -22,7 +22,7 @@ class Perft {
     std::vector<PerftTT_8<counterSizeMB>> counterHelp;
     PerftTT_8<positionsMB> perftTT;
     ForbiddenTT oldUnique;
-    const bool memoryIsSparse = true;
+    const bool memoryIsSparse = false;
 
     std::list<std::string> dissimilarPositions;
 
