@@ -14,12 +14,14 @@ int main() {
 
     Position p;
     Position::set("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", p);
-    Perft perft1(p);
+    Perft perft(p);
 
-    // perft1.findSpecific<WHITE, 8, true>();
+    // perft.oneSideManyMoves<BLACK, 7, true>();
+
+    // perft.findSpecific<WHITE, 8, true>();
 
     for (int depth = 1; depth < 8; depth++) {
-        perft1.basePerft<WHITE>(depth);
+        perft.basePerft<WHITE>(depth);
     }
 
     return 0;

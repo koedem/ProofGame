@@ -188,7 +188,7 @@ public:
                 if (finalCondition()) {
                     while (!move_stack.empty()) {
                         std::cout << move_stack.top() << std::endl;
-                        move_stack.pop();
+                        move_stack.pop(); // note, after this while loop the program will segfault by trying to pop an empty stack
                     }
                     return;
                 }
@@ -242,6 +242,65 @@ public:
                 findSpecific<~to_move, depth - 1, false>();
             } else {
                 solveSpecific<~to_move>();
+            }
+            board.undo<to_move>(move);
+            move_stack.pop();
+            if (top_level) {
+                time(&end);
+                std::cout << "Move " << move << " took " << (end - start) << " seconds." << std::endl;
+            }
+        }
+    }
+
+    template<Color to_move>
+    void oneSideThenMate() {
+        MoveList<to_move> moves(board);
+
+        for (const Move& move : moves) {
+            board.play<to_move>(move);
+            MoveList<~to_move> mate_moves(board);
+            for (const Move& mate_move : mate_moves) {
+                board.play<~to_move>(mate_move);
+                if (board.template in_check<to_move>()) {
+                    MoveList<to_move> empty(board);
+                    if (empty.size() == 0) {
+                        while (!move_stack.empty()) {
+                            std::cout << move_stack.top() << std::endl;
+                            move_stack.pop(); // note, after this while loop the program will segfault by trying to pop an empty stack
+                        }
+                        std::cout << move << " " << mate_move << std::endl;
+                    }
+                }
+                board.undo<~to_move>(mate_move);
+            }
+            board.undo<to_move>(move);
+        }
+    }
+
+    template<Color to_move, uint32_t depth, bool top_level>
+    void oneSideManyMoves() {
+        uint64_t hash = board.get_hash() + depth;
+        if (counterHelp[hash % 3].incrementToLimit(hash, 2, depth) >= 1) {
+            return;
+        }
+        MoveList<to_move> moves(board);
+
+        for (const Move& move : moves) {
+            if (top_level) {
+                time(&start);
+            }
+            board.play<to_move>(move);
+            if (board.template in_check<~to_move>()) {
+                board.undo<to_move>(move);
+                continue;
+            }
+            move_stack.push(move);
+
+
+            if constexpr (depth > 1) {
+                oneSideManyMoves<to_move, depth - 1, false>();
+            } else {
+                oneSideThenMate<to_move>();
             }
             board.undo<to_move>(move);
             move_stack.pop();
