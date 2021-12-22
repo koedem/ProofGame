@@ -24,7 +24,7 @@ public:
     void putEmpty(uint64_t hash, uint32_t depth) {
         uint64_t depth_hash = hash + depth;
         uint64_t bucket = depth_hash & mask;
-        uint64_t entry = (hash & (~mask)) + 1;
+        uint64_t entry = (depth_hash & (~mask)) + 1;
 
         for (uint32_t index = 0; index < 8; index++) {
             if (entries[bucket].slots[index] == 0) {
@@ -39,9 +39,10 @@ public:
         collisionCount++;
     }
 
-    void incrementPosition(uint64_t hash, bool ruined) {
-        uint64_t bucket = hash & mask;
-        uint64_t entry_code = (hash & (~mask));
+    void incrementPosition(uint64_t hash, uint32_t depth, bool ruined) {
+        uint64_t depth_hash = hash + depth;
+        uint64_t bucket = depth_hash & mask;
+        uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if ((entries[bucket].slots[i] & (~mask)) == entry_code) {
                 uint64_t count;

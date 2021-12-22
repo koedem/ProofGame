@@ -102,7 +102,7 @@ class Perft {
         static uint64_t hash = 0; // TODO prefetch, buffer access etc.
 
         for (const Move& move : moves) {
-            perftTT.incrementPosition(board.get_hash() ^ board.template zobrist_change_move<to_move>(move), ruined);
+            perftTT.incrementPosition(board.get_hash() ^ board.template zobrist_change_move<to_move>(move), 0, ruined);
         }
         return moves.size();
     }
