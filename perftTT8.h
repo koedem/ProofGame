@@ -21,46 +21,29 @@ class PerftTT_8 {
 
 public:
 
-    void putEmpty(uint64_t hash) {
-        uint64_t bucket = hash & mask;
-        if (entries[bucket].slots[0] == (hash & (~mask)) + 1 || entries[bucket].slots[1] == (hash & (~mask)) + 1
-            || entries[bucket].slots[2] == (hash & (~mask)) + 1 || entries[bucket].slots[3] == (hash & (~mask)) + 1
-            || entries[bucket].slots[4] == (hash & (~mask)) + 1 || entries[bucket].slots[5] == (hash & (~mask)) + 1
-            || entries[bucket].slots[6] == (hash & (~mask)) + 1 || entries[bucket].slots[7] == (hash & (~mask)) + 1) {
-            dupeCount++;
-        } else if (entries[bucket].slots[0] == 0) {
-            entries[bucket].slots[0] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[1] == 0) {
-            entries[bucket].slots[1] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[2] == 0) {
-            entries[bucket].slots[2] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[3] == 0) {
-            entries[bucket].slots[3] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[4] == 0) {
-            entries[bucket].slots[4] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[5] == 0) {
-            entries[bucket].slots[5] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[6] == 0) {
-            entries[bucket].slots[6] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[7] == 0) {
-            entries[bucket].slots[7] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else {
-            collisionCount++;
+    void putEmpty(uint64_t hash, uint32_t depth) {
+        uint64_t depth_hash = hash + depth;
+        uint64_t bucket = depth_hash & mask;
+        uint64_t entry = (hash & (~mask)) + 1;
+
+        for (uint32_t index = 0; index < 8; index++) {
+            if (entries[bucket].slots[index] == 0) {
+                entries[bucket].slots[index] = entry;
+                entryCount++;
+                return;
+            } else if (entries[bucket].slots[index] == entry) {
+                dupeCount++;
+                return;
+            }
         }
+        collisionCount++;
     }
 
     void incrementPosition(uint64_t hash, bool ruined) {
         uint64_t bucket = hash & mask;
-        for (uint64_t i = 0; i < 8; i++) {
-            if ((entries[bucket].slots[i] & (~mask)) == (hash & (~mask))) {
+        uint64_t entry_code = (hash & (~mask));
+        for (uint32_t i = 0; i < 8; i++) {
+            if ((entries[bucket].slots[i] & (~mask)) == entry_code) {
                 uint64_t count;
                 if ((count = entries[bucket].slots[i] & mask) < mask) { // once we reach the mask, i.e. equals, we stop incrementing
                     entries[bucket].slots[i] = (entries[bucket].slots[i] & (~mask)) + count + (ruined ? 2 : 1);
@@ -70,26 +53,19 @@ public:
         }
     }
 
-    bool isUnique(uint64_t hash) {
-        uint64_t bucket = hash & mask;
-        for (uint64_t i = 0; i < 8; i++) {
-            if ((entries[bucket].slots[i] & (~mask)) == (hash & (~mask))) {
-                if ((entries[bucket].slots[i] & mask) <= 7 && (entries[bucket].slots[i] & mask) == 2) { // two means once created then once reached from higher depth
-                    return true;
-                }
-                break;
-            }
-        }
-        return false;
-    }
-
     uint64_t incrementToLimit(uint64_t hash, int limit, int depth) {
         uint64_t bucket = hash & mask;
-        for (uint64_t i = 0; i < 8; i++) {
-            if ((entries[bucket].slots[i] & (~mask)) == (hash & (~mask))) {
+        uint64_t entry_code = (hash & (~mask));
+        for (uint32_t i = 0; i < 8; i++) {
+            if (entries[bucket].slots[i] == 0) {
+                entries[bucket].slots[i] = entry_code + 1;
+                entryCount++;
+                return 0;
+            }
+            if ((entries[bucket].slots[i] & (~mask)) == entry_code) {
                 uint64_t count;
                 if ((count = entries[bucket].slots[i] & mask) < limit) { // once we reach the limit, i.e. equals, we stop incrementing
-                    entries[bucket].slots[i] = (entries[bucket].slots[i] & (~mask)) + count + 1;
+                    entries[bucket].slots[i] = entry_code + count + 1;
                 } else {
                     limitHitsPerDepth[depth]++;
                 }
@@ -97,35 +73,22 @@ public:
                 return count;
             }
         }
-
-        if (entries[bucket].slots[0] == 0) {
-            entries[bucket].slots[0] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[1] == 0) {
-            entries[bucket].slots[1] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[2] == 0) {
-            entries[bucket].slots[2] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[3] == 0) {
-            entries[bucket].slots[3] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[4] == 0) {
-            entries[bucket].slots[4] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[5] == 0) {
-            entries[bucket].slots[5] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[6] == 0) {
-            entries[bucket].slots[6] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else if (entries[bucket].slots[7] == 0) {
-            entries[bucket].slots[7] = (hash & (~mask)) + 1;
-            entryCount++;
-        } else {
-            collisionCount++;
-        }
+        collisionCount++;
         return 0;
+    }
+
+    bool isUnique(uint64_t hash) {
+        uint64_t bucket = hash & mask;
+        uint64_t entry_code = (hash & (~mask));
+        for (uint32_t i = 0; i < 8; i++) {
+            if ((entries[bucket].slots[i] & (~mask)) == entry_code) {
+                if ((entries[bucket].slots[i] & mask) <= 7 && (entries[bucket].slots[i] & mask) == 2) { // two means once created then once reached from higher depth
+                    return true;
+                }
+                break;
+            }
+        }
+        return false;
     }
 
     void printCounts() {

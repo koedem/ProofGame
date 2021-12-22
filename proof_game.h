@@ -27,10 +27,10 @@ class Perft {
     std::list<std::string> dissimilarPositions;
 
     template<Color to_move>
-    uint64_t generateEmptyPositions(int depth) {
+    uint64_t generateEmptyPositions(uint32_t depth) {
         uint64_t nodes = 0;
         if (depth == 0) {
-            perftTT.putEmpty(board.get_hash());
+            perftTT.putEmpty(board.get_hash(), depth);
             return 1;
         }
         MoveList<to_move> moves(board);
