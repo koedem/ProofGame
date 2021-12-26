@@ -16,11 +16,12 @@ int main() {
     Position::set("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", p);
     Perft perft(p);
 
-    // perft.oneSideManyMoves<BLACK, 7, true>();
+    //std::cout << p << std::endl;
+    //perft.oneSideManyMoves<BLACK, 16, true>();
 
-    // perft.findSpecific<WHITE, 8, true>();
+    //perft.findSpecific<WHITE, 8, true>();
 
-    for (int depth = 1; depth < 8; depth++) {
+    for (int depth = 1; depth < 10; depth++) {
         perft.basePerft<WHITE>(depth);
     }
 

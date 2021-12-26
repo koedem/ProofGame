@@ -6,6 +6,9 @@
 #include "tables.h"
 #include <utility>
 
+
+const bool use_en_passant = true;
+
 //A psuedorandom number generator
 //Source: Stockfish
 class PRNG {
@@ -515,7 +518,7 @@ Move* Position::generate_legals(Move* list) {
 		//...and we can play a quiet move to any square which is not occupied
 		quiet_mask = ~all;
 
-		if (history[game_ply].epsq != NO_SQUARE) {
+		if (use_en_passant && history[game_ply].epsq != NO_SQUARE) {
 			//b1 contains our pawns that can perform an e.p. capture
 			b2 = pawn_attacks<Them>(history[game_ply].epsq) & bitboard_of(Us, PAWN);
 			b1 = b2 & not_pinned;
