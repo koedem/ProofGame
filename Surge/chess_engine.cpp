@@ -65,14 +65,3 @@ void test_perft() {
 	std::cout << "Time difference = "
 		<< std::chrono::duration_cast<std::chrono::microseconds>(diff).count() << " [microseconds]\n";
 }
-
-int main() {
-	//Make sure to initialise all databases before using the library!
-	initialise_all_databases();
-	zobrist::initialise_zobrist_keys();
-
-	//gk call test_perft()
-	test_perft();
-	
-	return 0;
-}
