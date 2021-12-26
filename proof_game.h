@@ -8,20 +8,23 @@
 
 #include "position.h"
 #include "perftTT8.h"
-#include "forbiddenTT.h"
+#include "hash_map.h"
 
 using namespace std::chrono;
 
-const uint64_t counterSizeMB = 8192;
-const uint64_t positionsMB = 16;
-const uint64_t oldUniqueMB = 1;
+const uint64_t counterSizeMB = 4096;
+const uint64_t positionsMB = 16384;
+const uint64_t oldUniqueMB = 256;
+
+const uint32_t additional_depth = 1;
 
 class Perft {
 
     Position board;
     std::vector<PerftTT_8<counterSizeMB>> counterHelp;
     PerftTT_8<positionsMB> perftTT;
-    ForbiddenTT oldUnique;
+    Hash_map oldUnique; // this only works when adding an even number of plies for the unqiue game, otherwise the
+                        // out of order moves might prevent duplicating the moves in a shorter position
     const bool memoryIsSparse = false;
 
     std::list<std::string> dissimilarPositions;
@@ -49,7 +52,7 @@ class Perft {
         uint64_t nodes = 0;
         if (depth == 0) {
             if (perftTT.isUnique(board.get_hash()) && dissimilar()) {
-                std::cout << board;
+                //std::cout << board;
                 oldUnique.put(board.get_hash(), depthSoFar);
             }
             return 1;
@@ -90,7 +93,7 @@ class Perft {
                     continue;
                 }
             }
-            nodes += countDeepPositions<~to_move>(depth - 1, depthSoFar + 1, ruined || oldUnique.isPresent(board.get_hash()) < depthSoFar); // we get ruined by an old unique position
+            nodes += countDeepPositions<~to_move>(depth - 1, depthSoFar + 1, ruined); // || oldUnique.isPresent(board.get_hash()) < depthSoFar);
             board.template undo<to_move>(move);
         }
         return nodes;
@@ -153,7 +156,7 @@ public:
         perftTT.printCounts();
 
         t1 = high_resolution_clock::now();
-        result = countDeepPositions<to_move>(depth + 5, 0, false);
+        result = countDeepPositions<to_move>(depth + additional_depth, 0, false);
         t2 = high_resolution_clock::now();
         time_span = t2 - t1;
 
@@ -169,13 +172,18 @@ public:
 
     template<Color to_move>
     void solveSpecific() {
+        uint64_t hash = board.get_hash() + 10;
+        if (counterHelp[hash % 3].incrementToLimit(hash, 2, 10) >= 1) {
+            return;
+        }
         MoveList<to_move> moves(board);
 
         for (const Move& move : moves) {
             board.play<to_move>(move);
             move_stack.push(move);
 
-            if (!permanentCondition()) {
+            hash = board.get_hash() + 11;
+            if (!permanentCondition(1)) {
                 board.undo<to_move>(move);
                 move_stack.pop();
                 continue;
@@ -183,17 +191,20 @@ public:
             MoveList<~to_move> moves_2(board);
 
             for (const Move& move_2 : moves_2) {
-                board.play<~to_move>(move_2);
-                move_stack.push(move_2);
-                if (finalCondition()) {
-                    while (!move_stack.empty()) {
-                        std::cout << move_stack.top() << std::endl;
-                        move_stack.pop(); // note, after this while loop the program will segfault by trying to pop an empty stack
+                if (move_2.is_capture() && board.at(move_2.to()) == WHITE_BISHOP && board.at(move_2.from()) == BLACK_KNIGHT && (move_2.to() % 9) % 2 == 0) {
+                    board.play<~to_move>(move_2);
+                    if (board.template in_check<to_move>()) {
+                        MoveList<to_move> mate(board);
+                        if (mate.size() == 0) {
+                            while (!move_stack.empty()) {
+                                std::cout << move_stack.top() << std::endl;
+                                move_stack.pop(); // note, after this while loop the program will segfault by trying to pop an empty stack
+                            }
+                            return;
+                        }
                     }
-                    return;
+                    board.undo<~to_move>(move_2);
                 }
-                board.undo<~to_move>(move_2);
-                move_stack.pop();
             }
             board.undo<to_move>(move);
             move_stack.pop();
@@ -203,17 +214,13 @@ public:
     time_t start, end;
 
     bool finalCondition() {
-        return board.bitboard_of(WHITE_KNIGHT) == (1ull << c4) && pop_count(board.bitboard_of(BLACK_PAWN)) == 7 && board.at(a3) == BLACK_BISHOP
-            && board.at(a1) == WHITE_ROOK && board.at(h1) == WHITE_ROOK && board.at(e8) == BLACK_KING && board.at(d8) == BLACK_QUEEN
-            && board.at(b8) == BLACK_KNIGHT && board.at(g8) == BLACK_KNIGHT && board.at(a8) == BLACK_ROOK && permanentCondition() && board.at(a6) == BLACK_PAWN;
+        return true;
     }
 
-    bool permanentCondition() {
-        return board.at(a2) == WHITE_PAWN && board.at(b2) == WHITE_PAWN && board.at(c2) == WHITE_PAWN
-        && board.at(d2) == WHITE_PAWN && board.at(e2) == WHITE_PAWN && board.at(f2) == WHITE_PAWN && board.at(g2) == WHITE_PAWN
-        && board.at(h2) == WHITE_PAWN && board.at(b7) == BLACK_PAWN && board.at(c7) == BLACK_PAWN
-        && board.at(d7) == BLACK_PAWN && board.at(f7) == BLACK_PAWN && board.at(g7) == BLACK_PAWN
-        && board.at(h7) == BLACK_PAWN && (board.at(a7) == BLACK_PAWN || board.at(a6) == BLACK_PAWN);
+    bool permanentCondition(uint32_t depth) {
+        return (depth > 3 || board.at(g8) != BLACK_KNIGHT || board.at(b8) != BLACK_KNIGHT) && (depth > 1 ||
+        board.at(g8) != BLACK_KNIGHT && board.at(f6) != BLACK_KNIGHT && board.at(h6) != BLACK_KNIGHT && board.at(e7) != BLACK_KNIGHT ||
+                board.at(b8) != BLACK_KNIGHT && board.at(c6) != BLACK_KNIGHT && board.at(a6) != BLACK_KNIGHT && board.at(d7) != BLACK_KNIGHT);
     }
 
     std::stack<Move> move_stack;
@@ -233,7 +240,7 @@ public:
             board.play<to_move>(move);
             move_stack.push(move);
 
-            if (!permanentCondition()) {
+            if (!permanentCondition(depth)) {
                 board.undo<to_move>(move);
                 move_stack.pop();
                 continue;
@@ -261,7 +268,7 @@ public:
             MoveList<~to_move> mate_moves(board);
             for (const Move& mate_move : mate_moves) {
                 board.play<~to_move>(mate_move);
-                if (board.template in_check<to_move>()) {
+                if (!board.template in_check<to_move>()) {
                     MoveList<to_move> empty(board);
                     if (empty.size() == 0) {
                         while (!move_stack.empty()) {
@@ -279,10 +286,6 @@ public:
 
     template<Color to_move, uint32_t depth, bool top_level>
     void oneSideManyMoves() {
-        uint64_t hash = board.get_hash() + depth;
-        if (counterHelp[hash % 3].incrementToLimit(hash, 2, depth) >= 1) {
-            return;
-        }
         MoveList<to_move> moves(board);
 
         for (const Move& move : moves) {
@@ -290,7 +293,8 @@ public:
                 time(&start);
             }
             board.play<to_move>(move);
-            if (board.template in_check<~to_move>()) {
+            uint64_t hash = board.get_hash() + depth;
+            if (board.template in_check<~to_move>() || counterHelp[hash % 3].incrementToLimit(hash, 2, depth) >= 1) {
                 board.undo<to_move>(move);
                 continue;
             }

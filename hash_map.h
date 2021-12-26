@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <vector>
 
-class ForbiddenTT {
+class Hash_map {
 
     const uint64_t  size;
     const uint64_t mask;
@@ -19,13 +19,15 @@ class ForbiddenTT {
     }
 
 public:
-    explicit ForbiddenTT(uint64_t sizeInMB) : size(sizeInMB * 131072),
-        mask(size / 8 - 1), // eight entries per bucket
+    explicit Hash_map(uint64_t sizeInMB) : size(sizeInMB * 131072),
+                                           mask(size / 8 - 1), // eight entries per bucket
         entries(size) {
     }
 
-    uint64_t isPresent(uint64_t hash) {
-        uint64_t bucket = hash & mask;
+    //template<uint32_t depth_so_far>
+    uint64_t isPresent(uint64_t hash, int depth_so_far) {
+        uint64_t depth_hash = hash + depth_so_far;
+        uint64_t bucket = depth_hash & mask;
         for (uint64_t i = 0; i < 8; i++) {
             if ((entries[8 * bucket + i] & (~mask)) == (hash & (~mask))) {
                 return entries[8 * bucket + i] & mask;
@@ -34,17 +36,18 @@ public:
         return 100;
     }
 
-    void put(uint64_t hash, int depthSoFar) {
-        uint64_t bucket = hash & mask;
+    //template<uint32_t depth_so_far>
+    void put(uint64_t hash, int depth_so_far) {
+        uint64_t depth_hash = hash + depth_so_far;
+        uint64_t bucket = depth_hash & mask;
         for (uint64_t i = 0; i < 8; i++) {
-            if ((entries[8 * bucket + i] & (~mask)) == (hash & (~mask))) { // TODO could it be entered at different depths?
-                int a = 0; // this should be impossible once proper implementation happened
+            if ((entries[8 * bucket + i] & (~mask)) == (hash & (~mask))) {
                 return;
             }
         }
         for (uint64_t i = 0; i < 8; i++) {
             if (entries[8 * bucket + i] == 0) {
-                entries[8 * bucket] = (hash & (~mask)) + depthSoFar;
+                entries[8 * bucket] = hash;
                 entryCount++;
                 return;
             }
