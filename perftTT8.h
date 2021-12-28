@@ -127,7 +127,7 @@ public:
     }
 
     void reset() {
-        std::fill(entries.begin(), entries.end(), Bucket());
+        std::fill(entries.begin(), entries.end(), Bucket()); // TODO why both this and the loop below?
         for (Bucket& bucket : entries) {
             for (int i = 0; i  < 8; i++) {
                 bucket.slots[i] = 0;
@@ -137,6 +137,18 @@ public:
         entryCount = 0;
         dupeCount = 0;
         collisionCount = 0;
+    }
+
+    void reduceCounts() {
+        for (Bucket& bucket : entries) {
+            for (int i = 0; i < 8; i++) {
+                if ((bucket.slots[i] & mask) > 1) { // reached multiple times
+                    bucket.slots[i] = (bucket.slots[i] & ~mask) + 1; // then we say it got reached once so far
+                } else {
+                    bucket.slots[i] = (bucket.slots[i] & ~mask); // else it never got reached so far, so won't get a cutoff
+                }
+            }
+        }
     }
 
     explicit PerftTT_8() : limitHitsPerDepth(10),
