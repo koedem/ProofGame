@@ -15,6 +15,7 @@ using namespace std::chrono;
 const uint64_t counterSizeMB = 4096;
 const uint64_t positionsMB = 16384;
 const uint64_t oldUniqueMB = 256;
+const uint64_t emptyPosMB = 1024;
 
 const uint32_t additional_depth = 1;
 
@@ -25,6 +26,7 @@ class Perft {
     PerftTT_8<positionsMB> perftTT;
     Hash_map oldUnique; // this only works when adding an even number of plies for the unqiue game, otherwise the
                         // out of order moves might prevent duplicating the moves in a shorter position
+    Hash_map emptyPositionTT;
     const bool memoryIsSparse = false;
 
     std::list<std::string> dissimilarPositions;
@@ -34,6 +36,9 @@ class Perft {
         uint64_t nodes = 0;
         if (depth == 0) {
             perftTT.putEmpty(board.get_hash(), depth);
+            return 1;
+        }
+        if (emptyPositionTT.putIfNotPresent(board.get_hash(), depth)) { // TODO should be depth_so_far
             return 1;
         }
         MoveList<to_move> moves(board);
@@ -53,7 +58,7 @@ class Perft {
         if (depth == 0) {
             if (perftTT.isUnique(board.get_hash()) && dissimilar()) {
                 //std::cout << board;
-                oldUnique.put(board.get_hash(), depthSoFar);
+                oldUnique.putIfNotPresent(board.get_hash(), depthSoFar);
             }
             return 1;
         }
@@ -72,10 +77,11 @@ class Perft {
         if (depth == 1) {
             return incrementFinalDepth<to_move>(ruined);
         }
-
+        uint64_t count;
         if (memoryIsSparse) { // if our bottleneck is memory, don't store depth one results, therefore store up here
             uint64_t hash = board.get_hash() + depth;
-            if (counterHelp[hash % 3].incrementToLimit(hash, 2, depth) >= 2) {
+            count = counterHelp[hash % 3].incrementToLimit(hash, 2, depthSoFar);
+            if (count >= 2) {
                 return 1;
             }
         }
@@ -87,13 +93,14 @@ class Perft {
             board.template play<to_move>(move);
             if (!memoryIsSparse) {
                 uint64_t hash = board.get_hash() + depth;
-                if (counterHelp[hash % 3].incrementToLimit(hash, 2, depth) >= 2) {
+                count = counterHelp[hash % 3].incrementToLimit(hash, 2, depthSoFar);
+                if (count >= 2) {
                     board.template undo<to_move>(move);
                     nodes++;
                     continue;
                 }
             }
-            nodes += countDeepPositions<~to_move>(depth - 1, depthSoFar + 1, ruined); // || oldUnique.isPresent(board.get_hash()) < depthSoFar);
+            nodes += countDeepPositions<~to_move>(depth - 1, depthSoFar + 1, ruined); // || count > 0); // || oldUnique.isPresent(board.get_hash()) < depthSoFar);
             board.template undo<to_move>(move);
         }
         return nodes;
@@ -135,7 +142,8 @@ class Perft {
     }
 
 public:
-    explicit Perft(const Position& board) : board(board), counterHelp(3), perftTT(), oldUnique(oldUniqueMB) {
+    explicit Perft(const Position& board) : board(board), counterHelp(3), perftTT(), oldUnique(oldUniqueMB),
+                                            emptyPositionTT(emptyPosMB) {
     }
 
     template<Color to_move>
@@ -145,13 +153,14 @@ public:
         counterHelp[1].reset();
         counterHelp[2].reset();
         dissimilarPositions.clear();
+        emptyPositionTT.reset();
         high_resolution_clock::time_point t1 = high_resolution_clock::now();
         uint64_t result = 0;
 
         result = generateEmptyPositions<to_move>(depth); // prepare shallow positions
         high_resolution_clock::time_point t2 = high_resolution_clock::now();
         duration<double, std::milli> time_span = t2 - t1;
-
+        emptyPositionTT.printCounts();
         std::cout << depth << ": " << result << "\ttime: " << time_span.count() << " knps: " << (result / time_span.count()) << std::endl;
         perftTT.printCounts();
 
