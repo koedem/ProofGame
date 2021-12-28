@@ -12,20 +12,20 @@ class Hash_map {
 
     uint64_t entryCount = 0, collisionCount = 0;
 
-    void reset() {
-        std::fill(entries.begin(), entries.end(), 0);
-        entryCount = 0;
-        collisionCount = 0;
-    }
-
 public:
     explicit Hash_map(uint64_t sizeInMB) : size(sizeInMB * 131072),
                                            mask(size / 8 - 1), // eight entries per bucket
         entries(size) {
     }
 
+    void reset() {
+        std::fill(entries.begin(), entries.end(), 0);
+        entryCount = 0;
+        collisionCount = 0;
+    }
+
     //template<uint32_t depth_so_far>
-    uint64_t isPresent(uint64_t hash, int depth_so_far) {
+    uint64_t isPresent(uint64_t hash, uint32_t depth_so_far) {
         uint64_t depth_hash = hash + depth_so_far;
         uint64_t bucket = depth_hash & mask;
         for (uint64_t i = 0; i < 8; i++) {
@@ -37,22 +37,23 @@ public:
     }
 
     //template<uint32_t depth_so_far>
-    void put(uint64_t hash, int depth_so_far) {
+    bool putIfNotPresent(uint64_t hash, uint32_t depth_so_far) {
         uint64_t depth_hash = hash + depth_so_far;
         uint64_t bucket = depth_hash & mask;
         for (uint64_t i = 0; i < 8; i++) {
             if ((entries[8 * bucket + i] & (~mask)) == (hash & (~mask))) {
-                return;
+                return true;
             }
         }
         for (uint64_t i = 0; i < 8; i++) {
             if (entries[8 * bucket + i] == 0) {
                 entries[8 * bucket] = hash;
                 entryCount++;
-                return;
+                return false;
             }
         }
         collisionCount++;
+        return false;
     }
 
     void printCounts() const {
