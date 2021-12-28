@@ -8,7 +8,7 @@ include_directories(Surge)
 
 add_executable(ProofGame
         Surge/chess_engine.cpp
-        forbiddenTT.h
+        hash_map.h
         main.cpp
         perftTT8.h
         Surge/position.cpp
