@@ -4,7 +4,7 @@
 
 //Zobrist keys for each piece and each square
 //Used to incrementally update the hash key of a position
-uint64_t zobrist::zobrist_table[NPIECES][NSQUARES];
+uint64_t zobrist::zobrist_table[NPIECES + 1][NSQUARES];
 
 //Initializes the zobrist table with random 64-bit numbers
 void zobrist::initialise_zobrist_keys() {
@@ -12,7 +12,7 @@ void zobrist::initialise_zobrist_keys() {
 	//gk comparison of integer expressions of different signedness
 	//gk for (int i = 0; i < NPIECES; i++)
 	//gk    for (int j = 0; j < NSQUARES; j++)
-	for (size_t i = 0; i < NPIECES; i++)
+	for (size_t i = 0; i < NPIECES + 1; i++)
 		for (size_t j = 0; j < NSQUARES; j++)
 			zobrist::zobrist_table[i][j] = rng.rand<uint64_t>();
 }

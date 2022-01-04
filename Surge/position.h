@@ -34,7 +34,7 @@ public:
 
 
 namespace zobrist {
-	extern uint64_t zobrist_table[NPIECES][NSQUARES];
+	extern uint64_t zobrist_table[NPIECES + 1][NSQUARES];
 	extern void initialise_zobrist_keys();
 }
 
@@ -140,7 +140,21 @@ public:
 	inline Piece at(Square sq) const { return board[sq]; }
 	inline Color turn() const { return side_to_play; }
 	inline int ply() const { return game_ply; }
-	inline uint64_t get_hash() const { return hash; }
+    inline uint64_t get_raw_hash() const {
+        return hash;
+    }
+
+	inline uint64_t get_ep_hash() const {
+        if (use_en_passant && history[game_ply].epsq != NO_SQUARE) { // if there is a legal e.p. capture the position differs from one without it
+            Square ep = history[game_ply].epsq;
+            if (side_to_play == WHITE && (at(Square(ep - 7)) == WHITE_PAWN || at(Square(ep - 9)) == WHITE_PAWN)) {
+                return hash ^ zobrist::zobrist_table[NPIECES][ep];
+            } else if (side_to_play == BLACK && (at(Square(ep + 7)) == BLACK_PAWN || at(Square(ep + 9)) == BLACK_PAWN)) {
+                return hash ^ zobrist::zobrist_table[NPIECES][ep];
+            }
+        }
+        return hash;
+    }
 
 	template<Color C> inline Bitboard diagonal_sliders() const;
 	template<Color C> inline Bitboard orthogonal_sliders() const;
