@@ -8,11 +8,11 @@ struct __attribute__((packed, aligned(64))) Bucket {
     uint64_t slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
-template<size_t SIZE_IN_MB>
+template<size_t SIZE_IN_MB, size_t POWER_OF_TWO>
 class PerftTT_8 {
 
-    uint64_t  size;
-    uint64_t mask;
+    static constexpr uint64_t size = SIZE_IN_MB * 131072 / 8;
+    static constexpr uint64_t mask = (POWER_OF_TWO / 8 - 1); // eight entries per bucket
     const uint64_t    FREQUENCY_CAP = 8;
     alignas(64) std::vector<Bucket> entries;
     alignas(64) std::vector<uint64_t> limitHitsPerDepth;
@@ -23,7 +23,7 @@ public:
 
     void putEmpty(uint64_t hash, uint32_t depth) {
         uint64_t depth_hash = hash + depth;
-        uint64_t bucket = depth_hash & mask;
+        uint64_t bucket = depth_hash % size;
         uint64_t entry = (depth_hash & (~mask)) + 1;
 
         for (uint32_t index = 0; index < 8; index++) {
@@ -41,7 +41,7 @@ public:
 
     void incrementPosition(uint64_t hash, uint32_t depth, bool ruined) {
         uint64_t depth_hash = hash + depth;
-        uint64_t bucket = depth_hash & mask;
+        uint64_t bucket = depth_hash % size;
         uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if ((entries[bucket].slots[i] & (~mask)) == entry_code) {
@@ -55,7 +55,7 @@ public:
     }
 
     uint64_t incrementToLimit(uint64_t hash, int limit, int depth) {
-        uint64_t bucket = hash & mask;
+        uint64_t bucket = hash % size;
         uint64_t entry_code = (hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if (entries[bucket].slots[i] == 0) {
@@ -79,7 +79,7 @@ public:
     }
 
     bool isUnique(uint64_t hash) {
-        uint64_t bucket = hash & mask;
+        uint64_t bucket = hash % size;
         uint64_t entry_code = (hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if ((entries[bucket].slots[i] & (~mask)) == entry_code) {
@@ -95,7 +95,7 @@ public:
     void printCounts() {
         std::cout << "Unique positions: " << entryCount << ", collision losses: " << collisionCount << ", remainder (duplicates): "
                   << dupeCount << ", sum: " << (entryCount + collisionCount + dupeCount) << std::endl;
-        std::cout << "Fill: " << std::fixed << std::setprecision(2) << (double) entryCount * 100 / (double) size << "%; "
+        std::cout << "Fill: " << std::fixed << std::setprecision(2) << (double) entryCount * 12.5 / (double) size << "%; "
                   << "duplication factor: " << (double) dupeCount / (double) entryCount << "; "
                   << "loss percentage: " << (double) collisionCount * 100 / (double) entryCount << "%." << std::endl;
 
@@ -153,8 +153,6 @@ public:
     }
 
     explicit PerftTT_8() : limitHitsPerDepth(10),
-            size(SIZE_IN_MB * 131072),
-            mask(size / 8 - 1), // eight entries per bucket
-            entries(size / 8) {
+            entries(size) {
     }
 };

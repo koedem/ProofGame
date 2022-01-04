@@ -23,8 +23,8 @@ const uint32_t additional_depth = 1;
 class Perft {
 
     Position board;
-    std::vector<PerftTT_8<counterSizeMB>> counterHelp;
-    PerftTT_8<positionsMB> perftTT;
+    PerftTT_8<counterSizeMB * 3, counterSizeMB << 17> counterHelp;
+    PerftTT_8<positionsMB, positionsMB << 17> perftTT;
     Hash_map oldUnique; // this only works when adding an even number of plies for the unqiue game, otherwise the
                         // out of order moves might prevent duplicating the moves in a shorter position
     Hash_map emptyPositionTT;
@@ -81,7 +81,7 @@ class Perft {
         uint64_t count;
         if (memoryIsSparse) { // if our bottleneck is memory, don't store depth one results, therefore store up here
             uint64_t hash = board.get_ep_hash() + depthSoFar;
-            count = counterHelp[hash % 3].incrementToLimit(hash, 2, depthSoFar);
+            count = counterHelp.incrementToLimit(hash, 2, depthSoFar);
             if (count >= 2) {
                 return 1;
             }
@@ -94,7 +94,7 @@ class Perft {
             board.template play<to_move>(move);
             if (!memoryIsSparse) {
                 uint64_t hash = board.get_ep_hash() + depthSoFar;
-                count = counterHelp[hash % 3].incrementToLimit(hash, 2, depthSoFar);
+                count = counterHelp.incrementToLimit(hash, 2, depthSoFar);
                 if (count >= 2) {
                     board.template undo<to_move>(move);
                     nodes++;
@@ -114,7 +114,7 @@ class Perft {
 
         for (const Move& move : moves) {
             hash = (board.get_raw_hash() ^ board.template zobrist_change_move<to_move>(move)) + depthSoFar; // TODO this is offset by one
-            counterHelp[hash % 3].incrementToLimit(hash, 2, depthSoFar);
+            counterHelp.incrementToLimit(hash, 2, depthSoFar);
             perftTT.incrementPosition(board.get_raw_hash() ^ board.template zobrist_change_move<to_move>(move), 0, ruined);
         }
         return moves.size();
@@ -145,19 +145,14 @@ class Perft {
     }
 
 public:
-    explicit Perft(const Position& board) : board(board), counterHelp(3), perftTT(), oldUnique(oldUniqueMB),
+    explicit Perft(const Position& board) : board(board), counterHelp(), perftTT(), oldUnique(oldUniqueMB),
                                             emptyPositionTT(emptyPosMB) {
     }
 
     template<Color to_move>
     void basePerft(int depth) {
         perftTT.reset();
-        //counterHelp[0].reset();
-        //counterHelp[1].reset();
-        //counterHelp[2].reset();
-        counterHelp[0].reduceCounts();
-        counterHelp[1].reduceCounts();
-        counterHelp[2].reduceCounts();
+        counterHelp.reduceCounts();
         dissimilarPositions.clear();
         emptyPositionTT.reset();
         high_resolution_clock::time_point t1 = high_resolution_clock::now();
@@ -177,9 +172,7 @@ public:
 
         std::cout << depth << ": " << result << "\ttime: " << time_span.count() << " knps: " << (result / time_span.count()) << std::endl;
         perftTT.printFrequencies();
-        counterHelp[0].printCounts();
-        counterHelp[1].printCounts();
-        counterHelp[2].printCounts();
+        counterHelp.printCounts();
 
         collectUniquePositions<to_move>(depth, 0);
         oldUnique.printCounts();
@@ -188,7 +181,7 @@ public:
     template<Color to_move>
     void solveSpecific() {
         uint64_t hash = board.get_ep_hash() + 10;
-        if (counterHelp[hash % 3].incrementToLimit(hash, 2, 10) >= 1) {
+        if (counterHelp.incrementToLimit(hash, 2, 10) >= 1) {
             return;
         }
         MoveList<to_move> moves(board);
@@ -243,7 +236,7 @@ public:
     template<Color to_move, int32_t depth, bool top_level>
     void findSpecific() {
         uint64_t hash = board.get_ep_hash() + depth;
-        if (counterHelp[hash % 3].incrementToLimit(hash, 2, depth) >= 1) {
+        if (counterHelp.incrementToLimit(hash, 2, depth) >= 1) {
             return;
         }
         MoveList<to_move> moves(board);
@@ -309,7 +302,7 @@ public:
             }
             board.play<to_move>(move);
             uint64_t hash = board.get_ep_hash() + depth;
-            if (board.template in_check<~to_move>() || counterHelp[hash % 3].incrementToLimit(hash, 2, depth) >= 1) {
+            if (board.template in_check<~to_move>() || counterHelp.incrementToLimit(hash, 2, depth) >= 1) {
                 board.undo<to_move>(move);
                 continue;
             }
