@@ -149,6 +149,7 @@ public:
                 }
             }
         }
+        std::fill(limitHitsPerDepth.begin(), limitHitsPerDepth.end(), 0);
     }
 
     explicit PerftTT_8() : limitHitsPerDepth(10),
