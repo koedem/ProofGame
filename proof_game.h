@@ -81,7 +81,7 @@ class Perft {
         }
         uint64_t count;
         if (memoryIsSparse) { // if our bottleneck is memory, don't store depth one results, therefore store up here
-            count = counterHelp.incrementToLimit(board.get_ep_hash(), 2, depthSoFar); // TODO if ruined we need to increment twice
+            count = counterHelp.incrementToLimit(board.get_ep_hash(), 2, depthSoFar, ruined); // TODO if ruined we need to increment twice
             if (count >= 2) {
                 return 1;
             }
@@ -93,7 +93,7 @@ class Perft {
         for (const Move& move : moves) {
             board.template play<to_move>(move);
             if (!memoryIsSparse) {
-                count = counterHelp.incrementToLimit(board.get_ep_hash(), 2, depthSoFar);
+                count = counterHelp.incrementToLimit(board.get_ep_hash(), 2, depthSoFar, ruined);
                 if (count >= 2) {
                     board.template undo<to_move>(move);
                     nodes++;
@@ -109,12 +109,12 @@ class Perft {
     template<Color to_move>
     uint64_t incrementFinalDepth(bool ruined, uint32_t depthSoFar) {
         MoveList<to_move> moves(board);
-        static uint64_t hash = 0; // TODO prefetch, buffer access etc.
+        static uint64_t hash = 0; // TODO prefetch, buffer access etc.; use + depthSoFar then
 
         for (const Move& move : moves) {
-            hash = (board.get_raw_hash() ^ board.template zobrist_change_move<to_move>(move)) + depthSoFar; // TODO this is offset by one
-            counterHelp.incrementToLimit(hash, 2, depthSoFar); // TODO increment twice if ruined
-            perftTT.incrementPosition(board.get_raw_hash() ^ board.template zobrist_change_move<to_move>(move), 0, ruined);
+            hash = (board.get_raw_hash() ^ board.template zobrist_change_move<to_move>(move)); // TODO this is offset by one
+            counterHelp.incrementToLimit(hash, 2, depthSoFar, ruined);
+            perftTT.incrementPosition(hash, 0, ruined);
         }
         return moves.size();
     }
@@ -183,7 +183,7 @@ public:
 
     template<Color to_move>
     void solveSpecific() {
-        if (counterHelp.incrementToLimit(board.get_ep_hash(), 2, 10) >= 1) {
+        if (counterHelp.incrementToLimit(board.get_ep_hash(), 2, 10, false) >= 1) {
             return;
         }
         MoveList<to_move> moves(board);
@@ -236,7 +236,7 @@ public:
 
     template<Color to_move, int32_t depth, bool top_level>
     void findSpecific() {
-        if (counterHelp.incrementToLimit(board.get_ep_hash(), 2, depth) >= 1) {
+        if (counterHelp.incrementToLimit(board.get_ep_hash(), 2, depth, false) >= 1) {
             return;
         }
         MoveList<to_move> moves(board);
@@ -301,7 +301,7 @@ public:
                 time(&start);
             }
             board.play<to_move>(move);
-            if (board.template in_check<~to_move>() || counterHelp.incrementToLimit(board.get_ep_hash(), 2, depth) >= 1) {
+            if (board.template in_check<~to_move>() || counterHelp.incrementToLimit(board.get_ep_hash(), 2, depth, false) >= 1) {
                 board.undo<to_move>(move);
                 continue;
             }

@@ -54,13 +54,13 @@ public:
         }
     }
 
-    uint64_t incrementToLimit(uint64_t hash, int limit, int depth) {
+    uint64_t incrementToLimit(uint64_t hash, uint32_t limit, uint32_t depth, bool ruined) {
         uint64_t depth_hash = hash + depth;
         uint64_t bucket = depth_hash % size;
         uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if (entries[bucket].slots[i] == 0) {
-                entries[bucket].slots[i] = entry_code + 1;
+                entries[bucket].slots[i] = entry_code + (ruined ? 2 : 1);
                 entryCount++;
                 return 0;
             }
@@ -68,6 +68,9 @@ public:
                 uint64_t count;
                 if ((count = entries[bucket].slots[i] & mask) < limit) { // once we reach the limit, i.e. equals, we stop incrementing
                     entries[bucket].slots[i] = entry_code + count + 1;
+                    if (ruined && count < limit - 1) {
+                        entries[bucket].slots[i]++; // TODO this whole adding thing probably deserves a rewrite
+                    }
                 } else {
                     limitHitsPerDepth[depth]++;
                 }
