@@ -63,6 +63,7 @@ class Perft {
             }
             return 1;
         }
+        // if (counter
         MoveList<to_move> moves(board);
 
         for (const Move& move : moves) {
@@ -80,8 +81,7 @@ class Perft {
         }
         uint64_t count;
         if (memoryIsSparse) { // if our bottleneck is memory, don't store depth one results, therefore store up here
-            uint64_t hash = board.get_ep_hash() + depthSoFar;
-            count = counterHelp.incrementToLimit(hash, 2, depthSoFar);
+            count = counterHelp.incrementToLimit(board.get_ep_hash(), 2, depthSoFar); // TODO if ruined we need to increment twice
             if (count >= 2) {
                 return 1;
             }
@@ -93,8 +93,7 @@ class Perft {
         for (const Move& move : moves) {
             board.template play<to_move>(move);
             if (!memoryIsSparse) {
-                uint64_t hash = board.get_ep_hash() + depthSoFar;
-                count = counterHelp.incrementToLimit(hash, 2, depthSoFar);
+                count = counterHelp.incrementToLimit(board.get_ep_hash(), 2, depthSoFar);
                 if (count >= 2) {
                     board.template undo<to_move>(move);
                     nodes++;
@@ -114,7 +113,7 @@ class Perft {
 
         for (const Move& move : moves) {
             hash = (board.get_raw_hash() ^ board.template zobrist_change_move<to_move>(move)) + depthSoFar; // TODO this is offset by one
-            counterHelp.incrementToLimit(hash, 2, depthSoFar);
+            counterHelp.incrementToLimit(hash, 2, depthSoFar); // TODO increment twice if ruined
             perftTT.incrementPosition(board.get_raw_hash() ^ board.template zobrist_change_move<to_move>(move), 0, ruined);
         }
         return moves.size();
@@ -174,14 +173,17 @@ public:
         perftTT.printFrequencies();
         counterHelp.printCounts();
 
+        t1 = high_resolution_clock::now();
         collectUniquePositions<to_move>(depth, 0);
+        t2 = high_resolution_clock::now();
+        time_span = t2 - t1;
+        std::cout << "Collected unique positions in: " << time_span.count() << std::endl;
         oldUnique.printCounts();
     }
 
     template<Color to_move>
     void solveSpecific() {
-        uint64_t hash = board.get_ep_hash() + 10;
-        if (counterHelp.incrementToLimit(hash, 2, 10) >= 1) {
+        if (counterHelp.incrementToLimit(board.get_ep_hash(), 2, 10) >= 1) {
             return;
         }
         MoveList<to_move> moves(board);
@@ -190,7 +192,6 @@ public:
             board.play<to_move>(move);
             move_stack.push(move);
 
-            hash = board.get_ep_hash() + 11;
             if (!permanentCondition(1)) {
                 board.undo<to_move>(move);
                 move_stack.pop();
@@ -235,8 +236,7 @@ public:
 
     template<Color to_move, int32_t depth, bool top_level>
     void findSpecific() {
-        uint64_t hash = board.get_ep_hash() + depth;
-        if (counterHelp.incrementToLimit(hash, 2, depth) >= 1) {
+        if (counterHelp.incrementToLimit(board.get_ep_hash(), 2, depth) >= 1) {
             return;
         }
         MoveList<to_move> moves(board);
@@ -301,8 +301,7 @@ public:
                 time(&start);
             }
             board.play<to_move>(move);
-            uint64_t hash = board.get_ep_hash() + depth;
-            if (board.template in_check<~to_move>() || counterHelp.incrementToLimit(hash, 2, depth) >= 1) {
+            if (board.template in_check<~to_move>() || counterHelp.incrementToLimit(board.get_ep_hash(), 2, depth) >= 1) {
                 board.undo<to_move>(move);
                 continue;
             }

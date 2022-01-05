@@ -21,7 +21,7 @@ int main() {
 
     //perft.findSpecific<WHITE, 8, true>();
 
-    for (int depth = 1; depth < 10; depth++) {
+    for (int depth = 1; depth < 9; depth++) {
         perft.basePerft<WHITE>(depth);
     }
 

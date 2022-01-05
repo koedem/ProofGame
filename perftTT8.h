@@ -55,8 +55,9 @@ public:
     }
 
     uint64_t incrementToLimit(uint64_t hash, int limit, int depth) {
-        uint64_t bucket = hash % size;
-        uint64_t entry_code = (hash & (~mask));
+        uint64_t depth_hash = hash + depth;
+        uint64_t bucket = depth_hash % size;
+        uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if (entries[bucket].slots[i] == 0) {
                 entries[bucket].slots[i] = entry_code + 1;
