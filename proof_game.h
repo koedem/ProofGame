@@ -28,7 +28,8 @@ class Perft {
     Hash_map oldUnique; // this only works when adding an even number of plies for the unqiue game, otherwise the
                         // out of order moves might prevent duplicating the moves in a shorter position
     Hash_map emptyPositionTT;
-    const bool memoryIsSparse = false;
+    static constexpr bool memoryIsSparse = false;
+    static constexpr bool countFinalDepth = false;
 
     std::list<std::string> dissimilarPositions;
 
@@ -113,7 +114,9 @@ class Perft {
 
         for (const Move& move : moves) {
             hash = (board.get_raw_hash() ^ board.template zobrist_change_move<to_move>(move)); // TODO this is offset by one
-            counterHelp.incrementToLimit(hash, 2, depthSoFar, ruined);
+            if constexpr(countFinalDepth) {
+                counterHelp.incrementToLimit(hash, 2, depthSoFar, ruined);
+            }
             perftTT.incrementPosition(hash, 0, ruined);
         }
         return moves.size();
