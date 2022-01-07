@@ -24,9 +24,9 @@ public:
         collisionCount = 0;
     }
 
-    //template<uint32_t depth_so_far>
-    uint64_t isPresent(uint64_t hash, uint32_t depth_so_far) {
-        uint64_t depth_hash = hash + depth_so_far;
+    template<uint32_t DEPTH_SO_FAR>
+    uint64_t isPresent(uint64_t hash) {
+        uint64_t depth_hash = hash + DEPTH_SO_FAR;
         uint64_t bucket = depth_hash & mask;
         for (uint64_t i = 0; i < 8; i++) {
             if ((entries[8 * bucket + i] & (~mask)) == (hash & (~mask))) {
@@ -36,9 +36,9 @@ public:
         return 100;
     }
 
-    //template<uint32_t depth_so_far>
-    bool putIfNotPresent(uint64_t hash, uint32_t depth_so_far) {
-        uint64_t depth_hash = hash + depth_so_far;
+    template<uint32_t DEPTH_SO_FAR>
+    bool putIfNotPresent(uint64_t hash) {
+        uint64_t depth_hash = hash + DEPTH_SO_FAR;
         uint64_t bucket = depth_hash & mask;
         for (uint64_t i = 0; i < 8; i++) {
             if ((entries[8 * bucket + i] & (~mask)) == (hash & (~mask))) {

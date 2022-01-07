@@ -21,8 +21,9 @@ class PerftTT_8 {
 
 public:
 
-    void putEmpty(uint64_t hash, uint32_t depthSoFar) {
-        uint64_t depth_hash = hash + depthSoFar;
+    template<uint32_t DEPTH_SO_FAR>
+    void putEmpty(uint64_t hash) {
+        uint64_t depth_hash = hash + DEPTH_SO_FAR;
         uint64_t bucket = depth_hash % size;
         uint64_t entry = depth_hash & (~mask);
 
@@ -39,8 +40,9 @@ public:
         collisionCount++;
     }
 
-    void incrementPosition(uint64_t hash, uint32_t depthSoFar, bool ruined) {
-        uint64_t depth_hash = hash + depthSoFar;
+    template<uint32_t DEPTH_SO_FAR>
+    void incrementPosition(uint64_t hash, bool ruined) {
+        uint64_t depth_hash = hash + DEPTH_SO_FAR;
         uint64_t bucket = depth_hash % size;
         uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
@@ -54,8 +56,9 @@ public:
         }
     }
 
-    uint64_t incrementToLimit(uint64_t hash, uint32_t limit, uint32_t depthSoFar, bool ruined) {
-        uint64_t depth_hash = hash + depthSoFar;
+    template<uint32_t DEPTH_SO_FAR>
+    uint64_t incrementToLimit(uint64_t hash, uint32_t limit, bool ruined) {
+        uint64_t depth_hash = hash + DEPTH_SO_FAR;
         uint64_t bucket = depth_hash % size;
         uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
@@ -72,7 +75,7 @@ public:
                         entries[bucket].slots[i]++; // TODO this whole adding thing probably deserves a rewrite
                     }
                 } else {
-                    limitHitsPerDepth[depthSoFar]++;
+                    limitHitsPerDepth[DEPTH_SO_FAR]++;
                 }
                 dupeCount++;
                 return count;
@@ -82,8 +85,9 @@ public:
         return 0;
     }
 
-    uint32_t getOccurrences(uint64_t hash, uint32_t depthSoFar) {
-        uint64_t depth_hash = hash + depthSoFar;
+    template<uint32_t DEPTH_SO_FAR>
+    uint32_t getOccurrences(uint64_t hash) {
+        uint64_t depth_hash = hash + DEPTH_SO_FAR;
         uint64_t bucket = depth_hash % size;
         uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
