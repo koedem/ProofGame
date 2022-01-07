@@ -21,10 +21,10 @@ class PerftTT_8 {
 
 public:
 
-    void putEmpty(uint64_t hash, uint32_t depth) {
-        uint64_t depth_hash = hash + depth;
+    void putEmpty(uint64_t hash, uint32_t depthSoFar) {
+        uint64_t depth_hash = hash + depthSoFar;
         uint64_t bucket = depth_hash % size;
-        uint64_t entry = (depth_hash & (~mask)) + 1;
+        uint64_t entry = depth_hash & (~mask);
 
         for (uint32_t index = 0; index < 8; index++) {
             if (entries[bucket].slots[index] == 0) {
@@ -39,23 +39,23 @@ public:
         collisionCount++;
     }
 
-    void incrementPosition(uint64_t hash, uint32_t depth, bool ruined) {
-        uint64_t depth_hash = hash + depth;
+    void incrementPosition(uint64_t hash, uint32_t depthSoFar, bool ruined) {
+        uint64_t depth_hash = hash + depthSoFar;
         uint64_t bucket = depth_hash % size;
         uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if ((entries[bucket].slots[i] & (~mask)) == entry_code) {
                 uint64_t count;
-                if ((count = entries[bucket].slots[i] & mask) < mask) { // once we reach the mask, i.e. equals, we stop incrementing
-                    entries[bucket].slots[i] = (entries[bucket].slots[i] & (~mask)) + count + (ruined ? 2 : 1);
+                if ((count = entries[bucket].slots[i] & mask) < mask - 1) { // once we reach the mask, i.e. equals, we stop incrementing
+                    entries[bucket].slots[i] = (entries[bucket].slots[i] & (~mask)) + count + (ruined ? 2 : 1); // TODO just += instead?
                 }
                 break;
             }
         }
     }
 
-    uint64_t incrementToLimit(uint64_t hash, uint32_t limit, uint32_t depth, bool ruined) {
-        uint64_t depth_hash = hash + depth;
+    uint64_t incrementToLimit(uint64_t hash, uint32_t limit, uint32_t depthSoFar, bool ruined) {
+        uint64_t depth_hash = hash + depthSoFar;
         uint64_t bucket = depth_hash % size;
         uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
@@ -72,7 +72,7 @@ public:
                         entries[bucket].slots[i]++; // TODO this whole adding thing probably deserves a rewrite
                     }
                 } else {
-                    limitHitsPerDepth[depth]++;
+                    limitHitsPerDepth[depthSoFar]++;
                 }
                 dupeCount++;
                 return count;
@@ -82,18 +82,16 @@ public:
         return 0;
     }
 
-    bool isUnique(uint64_t hash) {
-        uint64_t bucket = hash % size;
-        uint64_t entry_code = (hash & (~mask));
+    uint32_t getOccurrences(uint64_t hash, uint32_t depthSoFar) {
+        uint64_t depth_hash = hash + depthSoFar;
+        uint64_t bucket = depth_hash % size;
+        uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if ((entries[bucket].slots[i] & (~mask)) == entry_code) {
-                if ((entries[bucket].slots[i] & mask) <= 7 && (entries[bucket].slots[i] & mask) == 2) { // two means once created then once reached from higher depth
-                    return true;
-                }
-                break;
+                return entries[bucket].slots[i] & mask;
             }
         }
-        return false;
+        return 0;
     }
 
     void printCounts() {
@@ -115,11 +113,13 @@ public:
         for (Bucket bucket : entries) {
             for (int i = 0; i < 8; i++) {
                 uint64_t entry = bucket.slots[i];
-                size_t frequency = entry & mask;
-                if (frequency < FREQUENCY_CAP) {
-                    frequencies[frequency]++;
-                } else {
-                    frequencies[FREQUENCY_CAP]++;
+                if (entry != 0) {
+                    size_t frequency = entry & mask;
+                    if (frequency < FREQUENCY_CAP) {
+                        frequencies[frequency]++;
+                    } else {
+                        frequencies[FREQUENCY_CAP]++;
+                    }
                 }
             }
         }
@@ -131,7 +131,6 @@ public:
     }
 
     void reset() {
-        std::fill(entries.begin(), entries.end(), Bucket()); // TODO why both this and the loop below?
         for (Bucket& bucket : entries) {
             for (int i = 0; i  < 8; i++) {
                 bucket.slots[i] = 0;
