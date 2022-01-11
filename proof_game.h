@@ -13,23 +13,26 @@
 
 using namespace std::chrono;
 
-constexpr uint64_t counterSizeMB = 8192;
-constexpr uint64_t positionsMB = 16;
+constexpr bool memoryIsSparse = false;
+constexpr bool countFinalDepth = false;
+constexpr bool printPostions = false;
+
+constexpr uint32_t additional_depth = 6;
+
+constexpr uint64_t counterSizeMB = 2048;
+constexpr uint64_t positionsMB = 8;
 constexpr uint64_t oldUniqueMB = 32;
 constexpr uint64_t emptyPosMB = 1;
 
-constexpr uint32_t additional_depth = 5;
 
 class Perft {
 
     Position board;
-    PerftTT_8<counterSizeMB * 3, counterSizeMB << 17> counterHelp;
+    PerftTT_8<counterSizeMB * 2, counterSizeMB << 17> counterHelp;
     PerftTT_8<positionsMB, positionsMB << 17> perftTT;
     Hash_map oldUnique; // this only works when adding an even number of plies for the unqiue game, otherwise the
                         // out of order moves might prevent duplicating the moves in a shorter position
     Hash_map emptyPositionTT;
-    static constexpr bool memoryIsSparse = false;
-    static constexpr bool countFinalDepth = false;
 
     std::list<std::string> dissimilarPositions;
 
@@ -55,10 +58,38 @@ class Perft {
     }
 
     template<Color to_move, uint32_t DEPTH, uint32_t DEPTH_SO_FAR>
+    uint64_t expandEvenUniquePositions() {
+        if constexpr(DEPTH == 0) {
+            if (perftTT.getOccurrences<DEPTH_SO_FAR>(board.get_raw_hash()) == 1/*&& dissimilar()*/) {
+                if constexpr (printPostions) {
+                    std::cout << board.fen() << std::endl;
+                }
+                oldUnique.putIfNotPresent<DEPTH_SO_FAR>(board.get_raw_hash());
+            }
+            return 1;
+        } else {
+            uint64_t nodes = 0;
+            if (counterHelp.template getOccurrences<DEPTH_SO_FAR + additional_depth>(board.get_ep_hash()) > 1) {
+                return 1;
+            }
+            MoveList<to_move> moves(board);
+
+            for (const Move &move: moves) {
+                board.template play<to_move>(move);
+                nodes += expandEvenUniquePositions<~to_move, DEPTH - 1, DEPTH_SO_FAR + 1>();
+                board.template undo<to_move>(move);
+            }
+            return nodes;
+        }
+    }
+
+    template<Color to_move, uint32_t DEPTH, uint32_t DEPTH_SO_FAR>
     uint64_t collectUniquePositions() {
         if constexpr(DEPTH == 0) {
             if (perftTT.getOccurrences<DEPTH_SO_FAR>(board.get_raw_hash()) == 1/*&& dissimilar()*/) {
-                std::cout << board.fen() << std::endl;
+                if constexpr (printPostions) {
+                    std::cout << board.fen() << std::endl;
+                }
                 oldUnique.putIfNotPresent<DEPTH_SO_FAR>(board.get_raw_hash());
             }
             return 1;
@@ -188,6 +219,49 @@ public:
         time_span = t2 - t1;
         std::cout << "Collected unique positions in: " << time_span.count() << std::endl;
         oldUnique.printCounts();
+    }
+
+    template<Color to_move, uint32_t DEPTH>
+    void evenDepthTempoLoss() {
+        perftTT.reset();
+        counterHelp.reduceCounts();
+        dissimilarPositions.clear();
+        emptyPositionTT.reset();
+        high_resolution_clock::time_point t1 = high_resolution_clock::now();
+        uint64_t result = 0;
+
+        result = generateEmptyPositions<to_move, DEPTH, 0>(); // prepare shallow positions
+        high_resolution_clock::time_point t2 = high_resolution_clock::now();
+        duration<double, std::milli> time_span = t2 - t1;
+        emptyPositionTT.printCounts();
+        std::cout << DEPTH << ": " << result << "\ttime: " << time_span.count() << " knps: " << (result / time_span.count()) << std::endl;
+        perftTT.printCounts();
+
+        t1 = high_resolution_clock::now();
+        result = countDeepPositions<to_move, DEPTH + additional_depth, 0>(false);
+        t2 = high_resolution_clock::now();
+        time_span = t2 - t1;
+
+        std::cout << DEPTH << ": " << result << "\ttime: " << time_span.count() << " knps: " << (result / time_span.count()) << std::endl;
+        perftTT.printFrequencies();
+        counterHelp.printCounts();
+
+        emptyPositionTT.reset();
+        t1 = high_resolution_clock::now();
+        expandEvenUniquePositions<to_move, DEPTH, 0>();
+        t2 = high_resolution_clock::now();
+        time_span = t2 - t1;
+        std::cout << "Collected unique positions in: " << time_span.count() << std::endl;
+        oldUnique.printCounts();
+    }
+
+    template<Color to_move, uint32_t DEPTH>
+    void generateTempoLossPositions() {
+        if constexpr(additional_depth % 2 == 1) {
+            basePerft<to_move, DEPTH>();
+        } else {
+            evenDepthTempoLoss<to_move, DEPTH>();
+        }
     }
 
     template<Color to_move>
