@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
+#include "proof_game.h"
 
 struct __attribute__((packed, aligned(64))) Bucket {
     uint64_t slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -13,7 +14,8 @@ class PerftTT_8 {
 
     static constexpr uint64_t size = SIZE_IN_MB * 131072 / 8;
     static constexpr uint64_t mask = (POWER_OF_TWO / 8 - 1); // eight entries per bucket
-    const uint64_t    FREQUENCY_CAP = 8;
+    static constexpr uint64_t    FREQUENCY_CAP = 8;
+    static constexpr uint32_t depthFirstSlots = 8;
     alignas(64) std::vector<Bucket> entries;
     alignas(64) std::vector<uint64_t> limitHitsPerDepth;
 
@@ -60,6 +62,7 @@ public:
     uint64_t incrementToLimit(uint64_t hash, uint32_t limit, bool ruined) {
         uint64_t depth_hash = hash + DEPTH_SO_FAR;
         uint64_t bucket = depth_hash % size;
+        uint64_t quotient = depth_hash / size; // hopefully this gets optimized to use the result from the previous line
         uint64_t entry_code = (depth_hash & (~mask));
         for (uint32_t i = 0; i < 8; i++) {
             if (entries[bucket].slots[i] == 0) {
@@ -80,6 +83,9 @@ public:
                 dupeCount++;
                 return count;
             }
+        }
+        if (depthFirstSlots < 8 && ruined) { // if ruined, use one of the always replace slots, a pseudo random one
+            entries[bucket].slots[depthFirstSlots + (quotient % (8 - depthFirstSlots))] = entry_code + 2;
         }
         collisionCount++;
         return 0;
