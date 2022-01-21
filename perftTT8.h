@@ -5,8 +5,10 @@
 #include <iomanip>
 #include "proof_game.h"
 
+constexpr uint32_t bucketSize = 8;
+
 struct __attribute__((packed, aligned(64))) Bucket {
-    uint64_t slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    uint64_t slots[bucketSize] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 template<size_t SIZE_IN_MB, size_t POWER_OF_TWO>
@@ -15,7 +17,7 @@ class PerftTT_8 {
     static constexpr uint64_t size = SIZE_IN_MB * 131072 / 8;
     static constexpr uint64_t mask = (POWER_OF_TWO / 8 - 1); // eight entries per bucket
     static constexpr uint64_t    FREQUENCY_CAP = 8;
-    static constexpr uint32_t depthFirstSlots = 8;
+    static constexpr uint32_t depthFirstSlots = bucketSize / 2;
     alignas(64) std::vector<Bucket> entries;
     alignas(64) std::vector<uint64_t> limitHitsPerDepth;
 
